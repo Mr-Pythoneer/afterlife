@@ -6,7 +6,7 @@
  * surface is the player, and they are gone well before most of their rubbish.
  */
 
-import { FATES } from './data.js?v=10';
+import { FATES } from './data.js?v=11';
 
 const SHAPES = {
   'pet-bottle': 'bottle', 'glass-bottle': 'bottle', 'carton': 'carton',
@@ -37,6 +37,8 @@ const FATE_COLOUR = {
   [FATES.TEXTILE]: '#8A6E86',
 };
 
+function bounce(x) { const n = 7.5625, d = 2.75; if (x < 1 / d) return n * x * x; if (x < 2 / d) return n * (x -= 1.5 / d) * x + .75; if (x < 2.5 / d) return n * (x -= 2.25 / d) * x + .9375; return n * (x -= 2.625 / d) * x + .984375; }
+
 /* Deterministic pseudo-random so the scene never reshuffles between frames. */
 function rng(seed) {
   let s = seed * 9301 + 49297;
@@ -52,6 +54,7 @@ export class Scene {
     this.ctx = canvas.getContext('2d');
     this.items = [];
     this.year = 0;
+    this.raf = 0; this.dropAt = 0; this.dropIdx = -1;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.resize();
     window.addEventListener('resize', () => { this.resize(); this.draw(); });
@@ -66,7 +69,12 @@ export class Scene {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 
-  setItems(items) { this.items = items; this.draw(); }
+  setItems(items) {
+    if (items.length > this.items.length) { this.dropAt = performance.now(); this.dropIdx = items.length - 1; }
+    this.items = items; this.draw();
+  }
+  start() { if (this.raf) return; const f = () => { this.draw(); this.raf = requestAnimationFrame(f); }; this.raf = requestAnimationFrame(f); }
+  stop() { cancelAnimationFrame(this.raf); this.raf = 0; }
   setYear(year) { this.year = year; this.draw(); }
 
   /* Where each buried item sits. Newest items are shallow, older ones deeper —
@@ -133,6 +141,12 @@ export class Scene {
     ctx.lineTo(w, surfaceY);
     ctx.stroke();
 
+    const now = performance.now(), tm = now / 1000;
+    ctx.fillStyle = 'rgba(255,255,255,.42)';   // drifting clouds
+    for (let i = 0; i < 3; i++) {
+      const cx = ((i * w * .42 + tm * (7 + i * 3)) % (w + 240)) - 120, cy = surfaceY * (.22 + i * .24);
+      for (const [dx, r] of [[0, 16], [18, 22], [40, 15], [-18, 12]]) { ctx.beginPath(); ctx.ellipse(cx + dx, cy, r * 1.5, r * .7, 0, 0, 7); ctx.fill(); }
+    }
     this.drawHuman(ctx, w * 0.9, surfaceY);
 
     // Buried items
@@ -143,14 +157,24 @@ export class Scene {
       const gone = bio && this.year >= pl.high;
       const fragmented = !bio && item.mode === 'fragments' && this.year >= pl.low;
       const fading = bio ? this.year > pl.high * 0.55 : (item.mode === 'inert' && pl.high !== Infinity && this.year >= pl.high);
+      let py = p.y, prot = p.rot;
+      const idx = this.items.indexOf(p.entry);
+      if (idx === this.dropIdx) {
+        const dt = (now - this.dropAt) / 1000;
+        if (dt < 1.4) {
+          const k = bounce(Math.min(dt / 1.1, 1)); py = -30 + (p.y + 30) * k; prot = p.rot + (1 - k) * 5;
+          if (dt > .3 && dt < .95) { const u = (dt - .3) / .65; ctx.strokeStyle = `rgba(215,195,150,${1 - u})`; ctx.lineWidth = 3;
+            for (const m of [1, 1.6]) { ctx.beginPath(); ctx.arc(p.x, surfaceY, u * 46 * m, Math.PI, 2 * Math.PI); ctx.stroke(); } }
+        }
+      }
       ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rot);
+      ctx.translate(p.x, py);
+      ctx.rotate(prot);
       ctx.scale(p.scale, p.scale);
       if (fragmented) {
         const fr = rng(p.x | 0);
         ctx.fillStyle = FATE_COLOUR[item.fate] || '#4E86A8';
-        for (let k = 0; k < 9; k++) { ctx.fillRect((fr() - .5) * 34, (fr() - .5) * 26, 2, 2); }
+        for (let k = 0; k < 9; k++) { ctx.fillRect((fr() - .5) * 34 + Math.sin(tm * 1.4 + k) * 1.5, (fr() - .5) * 26 + Math.cos(tm * 1.1 + k) * 1.5, 2, 2); }
       } else {
         ctx.globalAlpha = gone ? 0 : (fading ? 0.42 : 1);
         drawShape(ctx, SHAPES[item.id] || FATE_SHAPE[item.fate] || 'bottle', FATE_COLOUR[item.fate] || '#4E86A8');

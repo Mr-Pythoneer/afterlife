@@ -12,7 +12,7 @@ export class Sim {
   }
   size() { const d = Math.min(devicePixelRatio || 1, 2); this.W = innerWidth; this.H = innerHeight; this.cv.width = this.W * d; this.cv.height = this.H * d; this.c.setTransform(d, 0, 0, d, 0, 0); }
   run(p, onTick, onDone) {
-    this.stop(); this.size(); this.p = p; this.trucks = []; this.onTick = onTick; this.onDone = onDone;
+    this.stop(); this.size(); this.p = p; this.trucks = []; this.puffs = []; this.onTick = onTick; this.onDone = onDone;
     this.t0 = performance.now(); this.last = this.t0; this.spawn = 0; this.done = false;
     this.raf = requestAnimationFrame((n) => this.frame(n));
   }
@@ -32,9 +32,11 @@ export class Sim {
   draw(t, frac, dt) {
     const c = this.c, W = this.W, H = this.H, gy = H * .74, S = Math.min(W, H * 1.6) / 110;
     const g = c.createLinearGradient(0, 0, 0, gy); g.addColorStop(0, '#5a6a78'); g.addColorStop(1, '#c9b79a'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+    c.fillStyle = 'rgba(255,255,255,.3)';
+    for (let i = 0; i < 3; i++) { const cx = ((i * W * .45 + t * (9 + i * 4)) % (W + 260)) - 130, cy = gy * (.14 + i * .17); for (const [dx, r] of [[0, 3], [4, 4.6], [9, 3.2], [-4, 2.6]]) { c.beginPath(); c.ellipse(cx + dx * S, cy, r * S * 1.6, r * S * .8, 0, 0, 7); c.fill(); } }
     // skyline sized to how many people live here
     const n = this.p.skyN, sc = this.p.skyH;
-    for (let i = 0; i < n; i++) { const bw = S * (7 + h(i) * 6), bh = S * (8 + h(i + 3) * 18) * sc, x = W * .03 + (i / Math.max(n, 1)) * W * .36; c.fillStyle = `rgba(40,44,52,${.55 + h(i) * .3})`; c.fillRect(x, gy - bh, bw, bh); c.fillStyle = 'rgba(240,220,150,.5)'; for (let k = 0; k < bh / (S * 3) - 1; k++) c.fillRect(x + S * 1.2, gy - bh + S * (1.5 + k * 3), S * 1.2, S * 1.2); }
+    for (let i = 0; i < n; i++) { const bw = S * (7 + h(i) * 6), bh = S * (8 + h(i + 3) * 18) * sc, x = W * .03 + (i / Math.max(n, 1)) * W * .36; c.fillStyle = `rgba(40,44,52,${.55 + h(i) * .3})`; c.fillRect(x, gy - bh, bw, bh); c.fillStyle = 'rgba(240,220,150,.5)'; for (let k = 0; k < bh / (S * 3) - 1; k++) { c.fillStyle = `rgba(240,220,150,${.22 + .3 * Math.abs(Math.sin(t * 1.2 + i * 2.3 + k * 1.7))})`; c.fillRect(x + S * 1.2, gy - bh + S * (1.5 + k * 3), S * 1.2, S * 1.2); } }
     c.fillStyle = '#3a3026'; c.fillRect(0, gy, W, H - gy);
     // the pile
     const cx = W * .7, hw = W * (.08 + frac * .24), ht = H * (.03 + frac * .42);
@@ -44,10 +46,13 @@ export class Sim {
     c.restore(); c.globalAlpha = 1; c.strokeStyle = '#7a6848'; c.lineWidth = 2; c.stroke(path);
     // trucks
     const tipX = cx - hw * .55; for (const tr of this.trucks) {
-      const sp = W * .28; if (tr.st === 'in') { tr.x += sp * dt; if (tr.x >= tipX) { tr.x = tipX; tr.st = 'tip'; this.onTip?.(); } } else if (tr.st === 'tip') { tr.tip += dt; if (tr.tip > .7) tr.st = 'out'; } else tr.x -= sp * dt * 1.2;
+      const sp = W * .28; if (tr.st === 'in') { tr.x += sp * dt; if (tr.x >= tipX) { tr.x = tipX; tr.st = 'tip'; this.onTip?.(); this.puffs.push({ x: tipX, age: 0 }); } } else if (tr.st === 'tip') { tr.tip += dt; if (tr.tip > .7) tr.st = 'out'; } else tr.x -= sp * dt * 1.2;
       const y = this.surf(tr.x, cx, hw, ht, gy); this.truck(c, tr.x, y, S, tr.st === 'tip' ? Math.min(tr.tip / .3, 1) : 0, tr.st === 'out');
     }
     this.trucks = this.trucks.filter((tr) => tr.x > -100);
+    for (const pf of this.puffs) { pf.age += dt; const u = pf.age / 1.3; if (u >= 1) continue; const yy = this.surf(pf.x, cx, hw, ht, gy);
+      for (let k = 0; k < 4; k++) { c.fillStyle = `rgba(200,180,140,${.4 * (1 - u)})`; c.beginPath(); c.arc(pf.x + (k - 1.5) * S * (1 + u * 3), yy - u * S * 7 - k * S * .6, S * (1.3 + u * 3), 0, 7); c.fill(); } }
+    this.puffs = this.puffs.filter((pf) => pf.age < 1.3);
     // bulldozer
     const bx = cx + Math.sin(t * .8) * hw * .35; const by = this.surf(bx, cx, hw, ht, gy); c.fillStyle = '#d6b23a'; c.fillRect(bx - S * 3, by - S * 3.6, S * 6, S * 2.6); c.fillStyle = '#222'; c.fillRect(bx - S * 3.4, by - S * 1.1, S * 6.8, S * 1.1);
     // gulls

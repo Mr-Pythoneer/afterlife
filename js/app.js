@@ -1,10 +1,11 @@
-import { ITEMS, COST, COST_LITTER_ORGANIC, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js?v=10';
-import { Scene } from './scene.js?v=10';
-import { drawPic } from './pics.js?v=10';
-import { Sim } from './sim.js?v=10';
-import * as Sound from './sound.js?v=10';
-import { PLACES, SOURCE } from './places.js?v=10';
-import { classifyLocal, classifyClaude, loadClassifier } from './ai.js?v=10';
+import { ITEMS, COST, COST_LITTER_ORGANIC, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js?v=11';
+import { Scene, drawShape, itemLook } from './scene.js?v=11';
+import * as Ambient from './ambient.js?v=11';
+import { drawPic } from './pics.js?v=11';
+import { Sim } from './sim.js?v=11';
+import * as Sound from './sound.js?v=11';
+import { PLACES, SOURCE } from './places.js?v=11';
+import { classifyLocal, classifyClaude, loadClassifier } from './ai.js?v=11';
 
 const $ = (s) => document.querySelector(s);
 const GOOD_ROUTE = new Set(['pet-bottle', 'aluminium-can', 'tin-can', 'glass-bottle', 'takeaway-box', 'cardboard', 'paper',
@@ -12,7 +13,33 @@ const GOOD_ROUTE = new Set(['pet-bottle', 'aluminium-can', 'tin-can', 'glass-bot
 const OUTLIVE_YEAR = 80;
 
 const state = { buried: [], saved: [], current: null };
-let scene, sim, consRaf = 0, lastYear = 0;
+let scene, sim, consRaf = 0, lastYear = 0, heroRaf = 0;
+
+/* ---------- little motion helpers ---------- */
+function countText(el, text, ms = 900) {
+  const parts = text.split(/(\d[\d,]*\.?\d*)/), nums = parts.map((s) => (/^\d/.test(s) ? parseFloat(s.replace(/,/g, '')) : null));
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || nums.every((n) => n === null)) { el.textContent = text; return; }
+  cancelAnimationFrame(el._r); const t0 = performance.now();
+  const f = (n) => {
+    const p = Math.min((n - t0) / ms, 1), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = parts.map((s, i) => { if (nums[i] === null) return s; const d = (s.split('.')[1] || '').length; return (nums[i] * e).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }); }).join('');
+    if (p < 1) el._r = requestAnimationFrame(f);
+  };
+  el._r = requestAnimationFrame(f);
+}
+const bounceOut = (x) => { const n = 7.5625, d = 2.75; if (x < 1 / d) return n * x * x; if (x < 2 / d) return n * (x -= 1.5 / d) * x + .75; if (x < 2.5 / d) return n * (x -= 2.25 / d) * x + .9375; return n * (x -= 2.625 / d) * x + .984375; };
+const hero = $('#hero'), hctx = hero.getContext('2d');
+function playHero(item) {
+  const l = itemLook(item), t0 = performance.now(); hctx.setTransform(2, 0, 0, 2, 0, 0);
+  const f = (now) => {
+    const t = (now - t0) / 1000, k = bounceOut(Math.min(t / .9, 1)); hctx.clearRect(0, 0, 220, 150);
+    const y = -30 + (92 + 30) * k + (t > .9 ? Math.sin((t - .9) * 2.2) * 5 : 0);
+    hctx.fillStyle = 'rgba(0,0,0,.18)'; hctx.beginPath(); hctx.ellipse(110, 128, 34 * (.5 + .5 * k), 6 * (.5 + .5 * k), 0, 0, 7); hctx.fill();
+    hctx.save(); hctx.translate(110, y); hctx.rotate((1 - k) * 4 + Math.sin(t * 1.3) * .12); hctx.scale(4.2, 4.2); drawShape(hctx, l.shape, l.colour); hctx.restore();
+    heroRaf = requestAnimationFrame(f);
+  };
+  cancelAnimationFrame(heroRaf); heroRaf = requestAnimationFrame(f);
+}
 
 /* ---------- screens ---------- */
 const SCREENS = ['scan', 'pick', 'id', 'journey', 'decide', 'out', 'cons', 'pile', 'where', 'sim'];
@@ -22,7 +49,10 @@ function go(name) {
   if (name !== 'sim') sim?.stop();
   if (name !== 'cons') cancelAnimationFrame(consRaf);
   if (!['journey', 'cons', 'sim'].includes(name)) Sound.stop();
-  if (name === 'pile') { if (!scene) scene = new Scene($('#ground')); else scene.resize(); refresh(); }
+  if (['scan', 'pick', 'id', 'decide', 'where'].includes(name)) Ambient.start(); else Ambient.stop();
+  if (name !== 'id') cancelAnimationFrame(heroRaf);
+  if (name !== 'pile') scene?.stop();
+  if (name === 'pile') { if (!scene) scene = new Scene($('#ground')); else scene.resize(); refresh(); scene.start(); }
 }
 document.addEventListener('click', (e) => { const t = e.target.closest('[data-go]'); if (t) go(t.dataset.go); });
 
@@ -85,7 +115,7 @@ function show(item, scanned) {
   state.current = item; if (scanned) Sound.found();
   $('#id-label').textContent = scanned ? 'Looks like' : 'You picked';
   $('#r-name').textContent = item.name;
-  $('#r-range').textContent = rangeText(item);
+  countText($('#r-range'), rangeText(item), 1000);
   $('#r-claimed').textContent = item.claimed ? `Posters say ${item.claimed === 1000000 ? '1,000,000' : item.claimed}. Nobody measured that.` : '';
   $('#r-mode').textContent = MODE_COPY[item.mode].label;
   $('#r-mode').dataset.mode = item.mode;
@@ -95,7 +125,7 @@ function show(item, scanned) {
   const src = $('#r-source');
   src.textContent = item.source?.name && item.source.name !== '—' ? `Source: ${item.source.name}` : '';
   if (item.source?.url) src.href = item.source.url; else src.removeAttribute('href');
-  go('id');
+  go('id'); playHero(item);
 }
 
 /* ---------- decide, then the journey plays itself ---------- */
@@ -133,7 +163,8 @@ const pic = $('#pic'), pctx = pic.getContext('2d');
 function sizePic() { const d = Math.min(devicePixelRatio || 1, 2); pic.width = innerWidth * d; pic.height = innerHeight * d; pctx.setTransform(d, 0, 0, d, 0, 0); }
 function beat() {
   const s = steps[si]; t0 = performance.now(); Sound.scene(s.pic);
-  $('#dots').innerHTML = steps.map((x, i) => `<i class="${i <= si ? 'on' : ''} ${x.branch ? 'branch' : ''}"></i>`).join('');
+  $('#dots').innerHTML = steps.map((x, i) => `<i class="${i < si ? 'on' : ''} ${i === si ? 'cur' : ''} ${x.branch ? 'branch' : ''}" ${i === si ? `style="--d:${(x.ms || STAGE_MS) / 1000}s"` : ''}></i>`).join('');
+  pic.style.animation = 'none'; void pic.offsetWidth; pic.style.animation = '';
   $('#j-sub').textContent = s.sub || ''; $('#j-t').textContent = s.t; const ti = $('#j-title'); ti.textContent = s.title; ti.style.animation = 'none'; void ti.offsetWidth; ti.style.animation = '';
   $('#scr-journey').classList.toggle('branch', !!s.branch);
 }
@@ -157,7 +188,7 @@ const cpic = $('#conspic'), cctx = cpic.getContext('2d');
 function showConsequence(item, route, saved) {
   const cost = saved ? { pic: 'shelf', line: 'Good. That one stays out of the ground.', stat: item.recycle, src: '' }
     : route === 'litter' && item.mode === MODES.BIODEGRADES ? COST_LITTER_ORGANIC : (COST[item.id] || COST.unknown);
-  $('#scr-cons').classList.toggle('good', saved);
+  const sc = $('#scr-cons'); sc.classList.toggle('good', saved); sc.classList.remove('boom'); void sc.offsetWidth; if (!saved) sc.classList.add('boom');
   $('#c-kick').textContent = saved ? 'The difference' : 'The consequence';
   $('#c-line').textContent = cost.line; $('#c-stat').textContent = cost.stat; $('#c-src').textContent = cost.src ? `Source: ${cost.src}` : '';
   const mega = $('#c-line'); mega.style.animation = 'none'; void mega.offsetWidth; mega.style.animation = '';
@@ -196,7 +227,7 @@ function refresh() {
   if (!scene) return;
   scene.setItems(state.buried.map((b) => ({ item: b.item })));
   const n = state.buried.length, s = state.saved.length, o = outlast();
-  $('#stat-buried').textContent = n; $('#stat-saved').textContent = s; $('#stat-outlast').textContent = o;
+  countText($('#stat-buried'), String(n), 700); countText($('#stat-saved'), String(s), 700); countText($('#stat-outlast'), String(o), 700);
   $('#verdict').textContent = n === 0
     ? (s ? 'Nothing buried. Keep going.' : 'Scan something to start your pile.')
     : o === 0 ? `${n} buried, and all of it will be gone within your lifetime. That is the good outcome.`
