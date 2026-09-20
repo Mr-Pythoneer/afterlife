@@ -219,11 +219,11 @@ for (const p of [...PLACES].sort((a, b) => a.name.localeCompare(b.name))) { cons
 sel.value = 'United States';
 const sizes = $('#sizes');
 SIZES.forEach((z) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `${z.label}${z.sub ? `<small>${z.sub}</small>` : ''}`; b.onclick = () => { size = z; [...sizes.children].forEach((x) => x.classList.toggle('on', x === b)); }; if (z === size) b.classList.add('on'); sizes.append(b); });
-const fmtT = (t) => (t < 1 ? `${Math.round(t * 1000)} kg` : t < 10 ? `${t.toFixed(1)} tonnes` : `${Math.round(t).toLocaleString()} tonnes`);
+const fmtT = (t) => (t < 0.001 ? `${Math.max(Math.round(t * 1e6), 1)} g` : t < 1 ? `${Math.round(t * 1000).toLocaleString()} kg` : t < 10 ? `${t.toFixed(1)} tonnes` : `${Math.round(t).toLocaleString()} tonnes`);
 if (!PLACES.length) $('#open-where').hidden = true;
 $('#open-where').addEventListener('click', () => go('where'));
 $('#again').addEventListener('click', () => go('where'));
-$('#go-sim').addEventListener('click', () => {
+$('#go-sim').addEventListener('click', () => { try {
   const place = PLACES.find((p) => p.name === sel.value); const tPerDay = size.pop * place.kg * place.dump / 1000;
   go('sim'); $('#sim-end').hidden = true; $('#sim-place').textContent = `${place.name} · ${size.label.toLowerCase()}`;
   $('#sim-rate').textContent = `${fmtT(tPerDay)} a day goes into the ground`;
@@ -236,4 +236,5 @@ $('#go-sim').addEventListener('click', () => {
     $('#end-note').textContent = `${place.name}: ${place.kg} kg of waste per person per day (${place.yr}), and ${Math.round(place.dump * 100)}% of it is landfilled, dumped or never collected. ${SOURCE} Volumes are rough estimates; the pile is drawn on a log scale.`;
     $('#sim-end').hidden = false;
   });
+} catch (err) { console.error(err); go('where'); alert('Sorry, the simulation failed to start: ' + err.message); }
 });
