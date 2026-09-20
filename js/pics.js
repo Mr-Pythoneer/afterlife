@@ -1,6 +1,6 @@
 /* Animated full-screen pictures for each beat of an item's journey.
  * drawPic(ctx, key, W, H, t, item) — t is seconds since the beat started. */
-import { drawShape, itemLook } from './scene.js';
+import { drawShape, itemLook } from './scene.js?v=9';
 
 const ease = (x) => { x = Math.min(Math.max(x, 0), 1); return x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; };
 const h = (n) => { const x = Math.sin(n * 127.1 + 1.7) * 43758.5453; return x - Math.floor(x); };

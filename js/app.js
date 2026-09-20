@@ -1,9 +1,9 @@
-import { ITEMS, COST, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js';
-import { Scene } from './scene.js';
-import { drawPic } from './pics.js';
-import { Sim } from './sim.js';
-import { PLACES, SOURCE } from './places.js';
-import { classifyLocal, classifyClaude, loadClassifier } from './ai.js';
+import { ITEMS, COST, COST_LITTER_ORGANIC, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js?v=9';
+import { Scene } from './scene.js?v=9';
+import { drawPic } from './pics.js?v=9';
+import { Sim } from './sim.js?v=9';
+import { PLACES, SOURCE } from './places.js?v=9';
+import { classifyLocal, classifyClaude, loadClassifier } from './ai.js?v=9';
 
 const $ = (s) => document.querySelector(s);
 const GOOD_ROUTE = new Set(['pet-bottle', 'aluminium-can', 'tin-can', 'glass-bottle', 'takeaway-box', 'cardboard', 'paper',
@@ -11,14 +11,15 @@ const GOOD_ROUTE = new Set(['pet-bottle', 'aluminium-can', 'tin-can', 'glass-bot
 const OUTLIVE_YEAR = 80;
 
 const state = { buried: [], saved: [], current: null };
-let scene;
+let scene, sim, consRaf = 0;
 
 /* ---------- screens ---------- */
-const SCREENS = ['scan', 'pick', 'id', 'journey', 'decide', 'out', 'pile', 'where', 'sim'];
+const SCREENS = ['scan', 'pick', 'id', 'journey', 'decide', 'out', 'cons', 'pile', 'where', 'sim'];
 function go(name) {
   for (const n of SCREENS) $('#scr-' + n).hidden = n !== name;
   window.scrollTo(0, 0);
   if (name !== 'sim') sim?.stop();
+  if (name !== 'cons') cancelAnimationFrame(consRaf);
   if (name === 'pile') { if (!scene) scene = new Scene($('#ground')); else scene.resize(); refresh(); }
 }
 document.addEventListener('click', (e) => { const t = e.target.closest('[data-go]'); if (t) go(t.dataset.go); });
@@ -122,9 +123,7 @@ function buildSteps(item, route, good) {
   }
   return withCost(item, getJourney(item).map((x) => ({ ...x, pic: PIC[x.title] || 'generic' })));
 }
-function withCost(item, list) {
-  const k = COST[item.id]; return k ? [...list, { t: 'the consequence', title: k.line, sub: `${k.stat} (${k.src})`, pic: k.pic, branch: true, ms: 6500 }] : list;
-}
+function withCost(item, list) { return list; }
 
 let steps = [], si = 0, t0 = 0, raf = 0, pending = null;
 const STAGE_MS = 2200;
@@ -148,9 +147,25 @@ function next() {
 }
 function finish() {
   const { item, route, good } = pending;
-  if (route === 'better' && good) state.saved.push(item); else state.buried.push({ item });
-  go('pile');
+  const saved = route === 'better' && good;
+  if (saved) state.saved.push(item); else state.buried.push({ item });
+  showConsequence(item, route, saved);
 }
+const cpic = $('#conspic'), cctx = cpic.getContext('2d');
+function showConsequence(item, route, saved) {
+  const cost = saved ? { pic: 'shelf', line: 'Good. That one stays out of the ground.', stat: item.recycle, src: '' }
+    : route === 'litter' && item.mode === MODES.BIODEGRADES ? COST_LITTER_ORGANIC : (COST[item.id] || COST.unknown);
+  $('#scr-cons').classList.toggle('good', saved);
+  $('#c-kick').textContent = saved ? 'The difference' : 'The consequence';
+  $('#c-line').textContent = cost.line; $('#c-stat').textContent = cost.stat; $('#c-src').textContent = cost.src ? `Source: ${cost.src}` : '';
+  const mega = $('#c-line'); mega.style.animation = 'none'; void mega.offsetWidth; mega.style.animation = '';
+  go('cons');
+  const d = Math.min(devicePixelRatio || 1, 2); cpic.width = innerWidth * d; cpic.height = innerHeight * d; cctx.setTransform(d, 0, 0, d, 0, 0);
+  const t0 = performance.now();
+  const loop = (now) => { drawPic(cctx, cost.pic, innerWidth, innerHeight, Math.min((now - t0) / 1000, 60), item); consRaf = requestAnimationFrame(loop); };
+  consRaf = requestAnimationFrame(loop);
+}
+$('#c-next').addEventListener('click', () => go('pile'));
 function play(route) {
   const item = state.current; const good = GOOD_ROUTE.has(item.id);
   pending = { item, route, good }; steps = buildSteps(item, route, good); si = 0;
@@ -213,7 +228,7 @@ const SIZES = [
   { label: 'Just me', pop: 1, skyN: 1, skyH: .5 }, { label: 'My school', sub: '1,000 people', pop: 1000, skyN: 4, skyH: .7 },
   { label: 'My town', sub: '50,000 people', pop: 50000, skyN: 9, skyH: 1 }, { label: 'My city', sub: '1 million people', pop: 1e6, skyN: 16, skyH: 1.5 },
 ];
-let size = SIZES[2], sim;
+let size = SIZES[2];
 const sel = $('#place');
 for (const p of [...PLACES].sort((a, b) => a.name.localeCompare(b.name))) { const o = document.createElement('option'); o.value = p.name; o.textContent = p.name; sel.append(o); }
 sel.value = 'United States';
@@ -221,8 +236,6 @@ const sizes = $('#sizes');
 SIZES.forEach((z) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `${z.label}${z.sub ? `<small>${z.sub}</small>` : ''}`; b.onclick = () => { size = z; [...sizes.children].forEach((x) => x.classList.toggle('on', x === b)); }; if (z === size) b.classList.add('on'); sizes.append(b); });
 const fmtT = (t) => (t < 0.001 ? `${Math.max(Math.round(t * 1e6), 1)} g` : t < 1 ? `${Math.round(t * 1000).toLocaleString()} kg` : t < 10 ? `${t.toFixed(1)} tonnes` : `${Math.round(t).toLocaleString()} tonnes`);
 if (!PLACES.length) $('#open-where').hidden = true;
-$('#open-where').addEventListener('click', () => go('where'));
-$('#again').addEventListener('click', () => go('where'));
 $('#go-sim').addEventListener('click', () => { try {
   const place = PLACES.find((p) => p.name === sel.value); const tPerDay = size.pop * place.kg * place.dump / 1000;
   go('sim'); $('#sim-end').hidden = true; $('#sim-place').textContent = `${place.name} · ${size.label.toLowerCase()}`;

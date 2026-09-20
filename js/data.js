@@ -517,3 +517,20 @@ export const COST = {
   'banana-peel': { pic: 'dump', line: 'Sealed in landfill, it makes methane instead of soil.', stat: 'Landfills are the third-largest source of human methane emissions in the US, 14.4%.', src: 'US EPA' },
   'apple-core': { pic: 'dump', line: 'Sealed in landfill, it makes methane instead of soil.', stat: 'Landfills are the third-largest source of human methane emissions in the US, 14.4%.', src: 'US EPA' },
 };
+
+Object.assign(COST, {
+  'glass-bottle': { pic: 'dump', line: 'Glass never rots. America buried 6.7 million tonnes of it in one year.', stat: 'The EU collects 80% of its glass for recycling. The US recycles 31%. That gap is policy, not physics.', src: 'US EPA 2018; FEVE 2022' },
+  'tin-can': { pic: 'furnace', line: 'Steel is the easy win: 71% of cans get recycled. Yours only counts if it goes in the right bin.', stat: 'The highest recycling rate of any common container in the US.', src: 'US EPA 2018' },
+  'crisp-packet': { pic: 'dump', line: 'No kerbside system in the world can recycle this.', stat: 'Metallised multi-layer film has no separation route and no end market. Take-back schemes downcycle it into fence posts.', src: 'London Recycles; Friends of the Earth' },
+  'toothbrush': { pic: 'dump', line: 'About a billion are thrown away in the US every year.', stat: 'Mixed plastics, rubber grips and metal staples: not recyclable in any kerbside programme.', src: 'National Geographic, 2019 (widely cited estimate)' },
+  'nappy': { pic: 'dump', line: 'Recycled: none.', stat: '3.3 million tons of disposable nappies were landfilled in the US in 2018. EPA found no significant recycling or composting.', src: 'US EPA 2018' },
+  'gum': { pic: 'dump', line: 'Councils pay millions to scrape it off the pavement.', stat: 'Up to 87% of surveyed sites in England are stained by gum. Gum base is synthetic plastic.', src: 'Keep Britain Tidy' },
+  'receipt': { pic: 'generic', line: 'Holding one after hand sanitiser puts BPA in your blood.', stat: 'Serum BPA rose by about 7 ng/mL within 90 minutes. Recycling receipts spreads the coating into napkins and toilet paper.', src: 'Hormann et al. 2014, PLOS ONE; Liao & Kannan 2011' },
+  'paper': { pic: 'dump', line: 'Buried, paper does not rot. It waits.', stat: 'Landfill excavations recovered 2,425 datable newspapers, some about 50 years old and still readable.', src: 'Rathje, Garbage Project, University of Arizona' },
+  'cardboard': { pic: 'dump', line: 'Buried, cardboard does not rot. It waits.', stat: 'Landfill excavations recovered 2,425 datable newspapers, some about 50 years old and still readable.', src: 'Rathje, Garbage Project, University of Arizona' },
+  'pizza-box': { pic: 'dump', line: 'Buried, cardboard does not rot. It waits.', stat: 'Landfill excavations recovered 2,425 datable newspapers, some about 50 years old and still readable.', src: 'Rathje, Garbage Project, University of Arizona' },
+  'takeaway-box': { pic: 'dump', line: 'Recyclable in theory. Landfilled in practice.', stat: 'Only about 13.6% of US plastic containers and packaging were recycled in 2018.', src: 'US EPA 2018' },
+  'carton': { pic: 'dump', line: 'Six layers, and almost nowhere can pull them apart.', stat: 'About 27% of cartons are collected for recycling worldwide, and about 20% in the US.', src: 'Tetra Pak; Carton Council' },
+  'unknown': { pic: 'dump', line: 'Most rubbish is several materials fused together.', stat: 'Only about 9% of all plastic waste ever made has been recycled.', src: 'Geyer, Jambeck & Law 2017, Science Advances' },
+});
+export const COST_LITTER_ORGANIC = { pic: 'dump', line: 'Litter is still litter.', stat: 'Food scraps dropped outdoors take weeks to two years to rot, and draw wildlife towards roads.', src: 'Glacier National Park / Parks Canada' };
