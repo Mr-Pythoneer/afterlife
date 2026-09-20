@@ -144,7 +144,7 @@ function refresh() {
   $('#verdict').textContent = n === 0
     ? (s ? 'Nothing buried. Keep going.' : 'Scan something to start your pile.')
     : o === 0 ? `${n} buried, and all of it will be gone within your lifetime. That is the good outcome.`
-    : `${n} items buried. ${o} of them will still be here when you are not.`;
+    : `${n === 1 ? '1 item' : n + ' items'} buried. ${o === n ? (n === 1 ? 'It' : 'All of them') : o + ' of them'} will still be here when you are not.`;
   tick();
 }
 function tick() {
