@@ -34,19 +34,19 @@
   <div class="big"><span id="r-range"></span><small>estimated years it lasts</small></div>
   <p id="r-claimed" class="warn small"></p>
   <span id="r-mode" class="mode"></span>
-  <button class="cta" id="go-journey">Follow it</button>
+  <button class="cta" id="go-journey">Next</button>
   <button class="ghost" id="not-it">Not it?</button>
 </section>
 
-<section class="screen tap" id="scr-journey" hidden>
+<section class="screen" id="scr-journey" hidden>
+  <canvas id="pic"></canvas>
   <div class="dots" id="dots"></div>
-  <p id="j-t" class="j-t"></p>
-  <h2 id="j-title" class="huge"></h2>
-  <p class="small hint">tap to continue</p>
+  <div class="cap"><p id="j-t" class="j-t"></p><h2 id="j-title" class="huge"></h2></div>
+  <p class="hint">tap to skip</p>
 </section>
 
 <section class="screen" id="scr-decide" hidden>
-  <p class="small">Your move</p>
+  <p class="small">What will you do with it?</p>
   <h2 id="d-name" class="huge"></h2>
   <button class="cta good" id="d-better">Do the right thing</button>
   <button class="cta" id="d-bin">Put it in the bin</button>
@@ -59,6 +59,7 @@
 </section>
 
 <section class="screen pile" id="scr-pile" hidden>
+  <p class="kicker">Your landfill</p>
   <p id="verdict" class="verdict"></p>
   <canvas id="ground" aria-label="Cross-section of the ground showing everything you have buried"></canvas>
   <div class="time">

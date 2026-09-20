@@ -1,5 +1,6 @@
-import { ITEMS, MODES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText, yearsText } from './data.js';
+import { ITEMS, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js';
 import { Scene } from './scene.js';
+import { drawPic } from './pics.js';
 import { classifyLocal, classifyClaude, loadClassifier } from './ai.js';
 
 const $ = (s) => document.querySelector(s);
@@ -91,38 +92,70 @@ function show(item, scanned) {
   go('id');
 }
 
-/* ---------- journey: one beat per tap ---------- */
-let steps = [], si = 0;
+/* ---------- decide, then the journey plays itself ---------- */
+const PIC = {
+  'You let go': 'hand', 'The bin': 'bin', 'The truck': 'truck', 'The sorting line': 'sorting', 'Sold by the tonne': 'ship',
+  'Out in the open': 'dump', 'Water': 'river', 'It breaks up, not down': 'fragments', 'Small enough to eat': 'animal',
+  'Still here, just invisible': 'clock', 'The furnace': 'furnace', 'Back on a shelf': 'shelf', 'Or: none of that': 'dump',
+  'Re-melted, or crushed for roadfill': 'furnace', 'Or: buried': 'dump', 'Geological': 'clock',
+  'In open air or a compost heap': 'soil', 'Or: sealed in landfill': 'dump', 'Legible': 'dump', 'Pulped': 'furnace',
+  'The end of the line': 'shelf', 'The wrong bin': 'bin', 'Leaching': 'drain', 'Downstream': 'river',
+  'What should have happened': 'shelf', 'Sorted and shipped': 'ship', 'Every single wash': 'river', 'Buried whole': 'dump',
+};
+function buildSteps(item, route, good) {
+  if (route === 'litter') {
+    const s = [{ t: 'right now', title: 'You drop it', pic: 'hand' }, { t: 'day 1', title: 'Nobody collects it', pic: 'dump' }];
+    if (item.mode === MODES.BIODEGRADES) return [...s, { t: 'weeks', title: 'It rots', pic: 'soil' }];
+    s.push({ t: 'first rain', title: 'The drain', pic: 'drain' }, { t: 'day 9', title: 'The river', pic: 'river' }, { t: 'year 1', title: 'The sea', pic: 'sea' });
+    return item.mode === MODES.FRAGMENTS
+      ? [...s, { t: 'the half-life', title: 'It breaks up, not down', pic: 'fragments' }, { t: 'after that', title: 'Small enough to eat', pic: 'animal' }]
+      : [...s, { t: 'the far end', title: 'Still here', pic: 'clock' }];
+  }
+  if (route === 'better' && good) {
+    if (item.fate === FATES.ORGANIC) return [{ t: 'right now', title: 'You let go', pic: 'hand' }, { t: 'week 2', title: 'Compost', pic: 'soil' }];
+    return [{ t: 'right now', title: 'You let go', pic: 'hand' }, { t: 'day 1', title: 'The right bin', pic: 'bin' },
+      { t: 'day 6', title: 'The sorting line', pic: 'sorting', branch: true }, { t: 'month 1', title: 'Melted or pulped', pic: 'furnace' },
+      { t: 'month 3', title: 'Something new', pic: 'shelf' }];
+  }
+  return getJourney(item).map((x) => ({ ...x, pic: PIC[x.title] || 'generic' }));
+}
+
+let steps = [], si = 0, t0 = 0, raf = 0, pending = null;
+const STAGE_MS = 2200;
+const pic = $('#pic'), pctx = pic.getContext('2d');
+function sizePic() { const d = Math.min(devicePixelRatio || 1, 2); pic.width = innerWidth * d; pic.height = innerHeight * d; pctx.setTransform(d, 0, 0, d, 0, 0); }
 function beat() {
-  const s = steps[si];
+  const s = steps[si]; t0 = performance.now();
   $('#dots').innerHTML = steps.map((x, i) => `<i class="${i <= si ? 'on' : ''} ${x.branch ? 'branch' : ''}"></i>`).join('');
-  $('#j-t').textContent = s.t; $('#j-title').textContent = s.title;
+  $('#j-t').textContent = s.t; const ti = $('#j-title'); ti.textContent = s.title; ti.style.animation = 'none'; void ti.offsetWidth; ti.style.animation = '';
   $('#scr-journey').classList.toggle('branch', !!s.branch);
 }
-$('#go-journey').addEventListener('click', () => { steps = getJourney(state.current); si = 0; go('journey'); beat(); });
-$('#scr-journey').addEventListener('click', () => {
-  if (si < steps.length - 1) { si++; beat(); } else { $('#d-name').textContent = state.current.name; go('decide'); }
-});
-
-/* ---------- decide ---------- */
-function dispose(route) {
-  const item = state.current;
-  const out = $('#outcome');
-  const good = GOOD_ROUTE.has(item.id);
-  if (route === 'better' && good) { state.saved.push(item); out.className = 'huge good'; out.textContent = 'Diverted. It stays out of the ground.'; }
-  else {
-    state.buried.push({ item });
-    out.className = 'huge bad';
-    out.textContent = route === 'better' ? 'No good route exists. Buried anyway.'
-      : route === 'litter' ? 'Dropped. It is travelling now.'
-      : good ? 'Buried. It could have been recycled.' : 'Buried.';
-  }
-  go('out');
+function frame(now) {
+  const t = (now - t0) / 1000;
+  drawPic(pctx, steps[si].pic, innerWidth, innerHeight, t, state.current);
+  if (now - t0 >= STAGE_MS) return next();
+  raf = requestAnimationFrame(frame);
 }
-$('#d-bin').addEventListener('click', () => dispose('bin'));
-$('#d-litter').addEventListener('click', () => dispose('litter'));
-$('#d-better').addEventListener('click', () => dispose('better'));
-$('#see-pile').addEventListener('click', () => go('pile'));
+function next() {
+  cancelAnimationFrame(raf);
+  if (si < steps.length - 1) { si++; beat(); raf = requestAnimationFrame(frame); } else finish();
+}
+function finish() {
+  const { item, route, good } = pending;
+  if (route === 'better' && good) state.saved.push(item); else state.buried.push({ item });
+  go('pile');
+}
+function play(route) {
+  const item = state.current; const good = GOOD_ROUTE.has(item.id);
+  pending = { item, route, good }; steps = buildSteps(item, route, good); si = 0;
+  go('journey'); sizePic(); beat(); raf = requestAnimationFrame(frame);
+}
+$('#go-journey').addEventListener('click', () => { $('#d-name').textContent = state.current.name; go('decide'); });
+$('#d-bin').addEventListener('click', () => play('bin'));
+$('#d-litter').addEventListener('click', () => play('litter'));
+$('#d-better').addEventListener('click', () => play('better'));
+$('#scr-journey').addEventListener('click', next);
+addEventListener('resize', () => { if (!$('#scr-journey').hidden) sizePic(); });
 
 /* ---------- ground + stats ---------- */
 const slider = $('#year');

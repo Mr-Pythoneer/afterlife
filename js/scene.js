@@ -192,7 +192,7 @@ export class Scene {
   }
 }
 
-function drawShape(ctx, shape, colour) {
+export function drawShape(ctx, shape, colour) {
   ctx.fillStyle = colour;
   ctx.strokeStyle = 'rgba(0,0,0,0.45)';
   ctx.lineWidth = 0.8;
@@ -268,4 +268,8 @@ function drawShape(ctx, shape, colour) {
   }
   ctx.fill(p);
   ctx.stroke(p);
+}
+
+export function itemLook(item) {
+  return { shape: SHAPES[item.id] || FATE_SHAPE[item.fate] || 'bottle', colour: FATE_COLOUR[item.fate] || '#4E86A8' };
 }
