@@ -1,9 +1,9 @@
 /* Slow-falling litter drifting behind the calm screens. Paused everywhere else to save battery. */
-import { drawShape } from './scene.js?v=11';
+import { drawShape } from './scene.js?v=12';
 const SH = ['bottle', 'can', 'bag', 'cup', 'box', 'carton', 'sheet', 'peel', 'butt', 'cap', 'mask', 'stick'];
 const COLS = ['#4E86A8', '#9AA3A8', '#B9A88A', '#8A6E86', '#C0762A', '#6E9384'];
 let cv, c, raf = 0, W = 0, H = 0; const items = [];
-const mk = (anywhere) => ({ x: Math.random() * W, y: anywhere ? Math.random() * H : -50, v: 14 + Math.random() * 26, r: Math.random() * 6, w: (Math.random() - .5) * .8, s: 1.6 + Math.random() * 2.4, a: .09 + Math.random() * .12, p: Math.random() * 6, sh: SH[(Math.random() * SH.length) | 0], c: COLS[(Math.random() * 6) | 0] });
+const mk = (anywhere) => ({ x: Math.random() * W, y: anywhere ? Math.random() * H : -50, v: 14 + Math.random() * 26, r: Math.random() * 6, w: (Math.random() - .5) * .8, s: 1.6 + Math.random() * 2.4, a: .07 + Math.random() * .09, p: Math.random() * 6, sh: SH[(Math.random() * SH.length) | 0], c: COLS[(Math.random() * 6) | 0] });
 function size() { const d = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; c.setTransform(d, 0, 0, d, 0, 0); }
 export function start() {
   if (raf || matchMedia('(prefers-reduced-motion: reduce)').matches) return;

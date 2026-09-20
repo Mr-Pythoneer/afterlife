@@ -6,7 +6,7 @@
  * surface is the player, and they are gone well before most of their rubbish.
  */
 
-import { FATES } from './data.js?v=11';
+import { FATES } from './data.js?v=12';
 
 const SHAPES = {
   'pet-bottle': 'bottle', 'glass-bottle': 'bottle', 'carton': 'carton',
@@ -70,7 +70,7 @@ export class Scene {
   }
 
   setItems(items) {
-    if (items.length > this.items.length) { this.dropAt = performance.now(); this.dropIdx = items.length - 1; }
+    if (items.length > this.items.length) { this.dropAt = performance.now() + 550; this.dropIdx = items.length - 1; }
     this.items = items; this.draw();
   }
   start() { if (this.raf) return; const f = () => { this.draw(); this.raf = requestAnimationFrame(f); }; this.raf = requestAnimationFrame(f); }
@@ -161,8 +161,8 @@ export class Scene {
       const idx = this.items.indexOf(p.entry);
       if (idx === this.dropIdx) {
         const dt = (now - this.dropAt) / 1000;
-        if (dt < 1.4) {
-          const k = bounce(Math.min(dt / 1.1, 1)); py = -30 + (p.y + 30) * k; prot = p.rot + (1 - k) * 5;
+        if (dt < 1.4) {  // (dt starts negative during the entrance fade)
+          const k = bounce(Math.min(Math.max(dt / 1.1, 0), 1)); py = -30 + (p.y + 30) * k; prot = p.rot + (1 - k) * 5;
           if (dt > .3 && dt < .95) { const u = (dt - .3) / .65; ctx.strokeStyle = `rgba(215,195,150,${1 - u})`; ctx.lineWidth = 3;
             for (const m of [1, 1.6]) { ctx.beginPath(); ctx.arc(p.x, surfaceY, u * 46 * m, Math.PI, 2 * Math.PI); ctx.stroke(); } }
         }

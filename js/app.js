@@ -1,11 +1,11 @@
-import { ITEMS, COST, COST_LITTER_ORGANIC, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js?v=11';
-import { Scene, drawShape, itemLook } from './scene.js?v=11';
-import * as Ambient from './ambient.js?v=11';
-import { drawPic } from './pics.js?v=11';
-import { Sim } from './sim.js?v=11';
-import * as Sound from './sound.js?v=11';
-import { PLACES, SOURCE } from './places.js?v=11';
-import { classifyLocal, classifyClaude, loadClassifier } from './ai.js?v=11';
+import { ITEMS, COST, COST_LITTER_ORGANIC, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js?v=12';
+import { Scene, drawShape, itemLook } from './scene.js?v=12';
+import * as Ambient from './ambient.js?v=12';
+import { drawPic } from './pics.js?v=12';
+import { Sim } from './sim.js?v=12';
+import * as Sound from './sound.js?v=12';
+import { PLACES, SOURCE } from './places.js?v=12';
+import { classifyLocal, classifyClaude, loadClassifier } from './ai.js?v=12';
 
 const $ = (s) => document.querySelector(s);
 const GOOD_ROUTE = new Set(['pet-bottle', 'aluminium-can', 'tin-can', 'glass-bottle', 'takeaway-box', 'cardboard', 'paper',
@@ -292,3 +292,4 @@ paintMute();
 addEventListener('pointerdown', () => Sound.init(), { capture: true });
 mute.addEventListener('click', () => { Sound.init(); Sound.setOn(!Sound.isOn()); paintMute(); if (Sound.isOn()) Sound.ui(); });
 document.addEventListener('click', (e) => { if (e.target.closest('button, summary, label.cta') && !e.target.closest('#mute')) Sound.ui(); });
+Ambient.start();
