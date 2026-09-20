@@ -2,7 +2,7 @@
  *  - CLIP running in the visitor's browser (no key, no server)
  *  - optional Claude vision call, using a key the visitor pastes (kept in sessionStorage only)
  */
-import { ITEMS, labelIndex } from './data.js?v=9';
+import { ITEMS, labelIndex } from './data.js?v=10';
 
 const TJS = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.0';
 const MODEL = 'onnx-community/TinyCLIP-ViT-39M-16-Text-19M-YFCC15M-ONNX';

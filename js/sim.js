@@ -44,7 +44,7 @@ export class Sim {
     c.restore(); c.globalAlpha = 1; c.strokeStyle = '#7a6848'; c.lineWidth = 2; c.stroke(path);
     // trucks
     const tipX = cx - hw * .55; for (const tr of this.trucks) {
-      const sp = W * .28; if (tr.st === 'in') { tr.x += sp * dt; if (tr.x >= tipX) { tr.x = tipX; tr.st = 'tip'; } } else if (tr.st === 'tip') { tr.tip += dt; if (tr.tip > .7) tr.st = 'out'; } else tr.x -= sp * dt * 1.2;
+      const sp = W * .28; if (tr.st === 'in') { tr.x += sp * dt; if (tr.x >= tipX) { tr.x = tipX; tr.st = 'tip'; this.onTip?.(); } } else if (tr.st === 'tip') { tr.tip += dt; if (tr.tip > .7) tr.st = 'out'; } else tr.x -= sp * dt * 1.2;
       const y = this.surf(tr.x, cx, hw, ht, gy); this.truck(c, tr.x, y, S, tr.st === 'tip' ? Math.min(tr.tip / .3, 1) : 0, tr.st === 'out');
     }
     this.trucks = this.trucks.filter((tr) => tr.x > -100);

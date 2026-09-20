@@ -6,7 +6,7 @@
  * surface is the player, and they are gone well before most of their rubbish.
  */
 
-import { FATES } from './data.js?v=9';
+import { FATES } from './data.js?v=10';
 
 const SHAPES = {
   'pet-bottle': 'bottle', 'glass-bottle': 'bottle', 'carton': 'carton',

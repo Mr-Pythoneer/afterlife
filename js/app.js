@@ -1,9 +1,10 @@
-import { ITEMS, COST, COST_LITTER_ORGANIC, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js?v=9';
-import { Scene } from './scene.js?v=9';
-import { drawPic } from './pics.js?v=9';
-import { Sim } from './sim.js?v=9';
-import { PLACES, SOURCE } from './places.js?v=9';
-import { classifyLocal, classifyClaude, loadClassifier } from './ai.js?v=9';
+import { ITEMS, COST, COST_LITTER_ORGANIC, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js?v=10';
+import { Scene } from './scene.js?v=10';
+import { drawPic } from './pics.js?v=10';
+import { Sim } from './sim.js?v=10';
+import * as Sound from './sound.js?v=10';
+import { PLACES, SOURCE } from './places.js?v=10';
+import { classifyLocal, classifyClaude, loadClassifier } from './ai.js?v=10';
 
 const $ = (s) => document.querySelector(s);
 const GOOD_ROUTE = new Set(['pet-bottle', 'aluminium-can', 'tin-can', 'glass-bottle', 'takeaway-box', 'cardboard', 'paper',
@@ -11,7 +12,7 @@ const GOOD_ROUTE = new Set(['pet-bottle', 'aluminium-can', 'tin-can', 'glass-bot
 const OUTLIVE_YEAR = 80;
 
 const state = { buried: [], saved: [], current: null };
-let scene, sim, consRaf = 0;
+let scene, sim, consRaf = 0, lastYear = 0;
 
 /* ---------- screens ---------- */
 const SCREENS = ['scan', 'pick', 'id', 'journey', 'decide', 'out', 'cons', 'pile', 'where', 'sim'];
@@ -20,6 +21,7 @@ function go(name) {
   window.scrollTo(0, 0);
   if (name !== 'sim') sim?.stop();
   if (name !== 'cons') cancelAnimationFrame(consRaf);
+  if (!['journey', 'cons', 'sim'].includes(name)) Sound.stop();
   if (name === 'pile') { if (!scene) scene = new Scene($('#ground')); else scene.resize(); refresh(); }
 }
 document.addEventListener('click', (e) => { const t = e.target.closest('[data-go]'); if (t) go(t.dataset.go); });
@@ -80,7 +82,7 @@ $('#file').addEventListener('change', (e) => scan(e.target.files[0]));
 
 /* ---------- identified ---------- */
 function show(item, scanned) {
-  state.current = item;
+  state.current = item; if (scanned) Sound.found();
   $('#id-label').textContent = scanned ? 'Looks like' : 'You picked';
   $('#r-name').textContent = item.name;
   $('#r-range').textContent = rangeText(item);
@@ -130,7 +132,7 @@ const STAGE_MS = 2200;
 const pic = $('#pic'), pctx = pic.getContext('2d');
 function sizePic() { const d = Math.min(devicePixelRatio || 1, 2); pic.width = innerWidth * d; pic.height = innerHeight * d; pctx.setTransform(d, 0, 0, d, 0, 0); }
 function beat() {
-  const s = steps[si]; t0 = performance.now();
+  const s = steps[si]; t0 = performance.now(); Sound.scene(s.pic);
   $('#dots').innerHTML = steps.map((x, i) => `<i class="${i <= si ? 'on' : ''} ${x.branch ? 'branch' : ''}"></i>`).join('');
   $('#j-sub').textContent = s.sub || ''; $('#j-t').textContent = s.t; const ti = $('#j-title'); ti.textContent = s.title; ti.style.animation = 'none'; void ti.offsetWidth; ti.style.animation = '';
   $('#scr-journey').classList.toggle('branch', !!s.branch);
@@ -159,13 +161,13 @@ function showConsequence(item, route, saved) {
   $('#c-kick').textContent = saved ? 'The difference' : 'The consequence';
   $('#c-line').textContent = cost.line; $('#c-stat').textContent = cost.stat; $('#c-src').textContent = cost.src ? `Source: ${cost.src}` : '';
   const mega = $('#c-line'); mega.style.animation = 'none'; void mega.offsetWidth; mega.style.animation = '';
-  go('cons');
+  go('cons'); Sound.scene(saved ? 'good' : 'doom');
   const d = Math.min(devicePixelRatio || 1, 2); cpic.width = innerWidth * d; cpic.height = innerHeight * d; cctx.setTransform(d, 0, 0, d, 0, 0);
   const t0 = performance.now();
   const loop = (now) => { drawPic(cctx, cost.pic, innerWidth, innerHeight, Math.min((now - t0) / 1000, 60), item); consRaf = requestAnimationFrame(loop); };
   consRaf = requestAnimationFrame(loop);
 }
-$('#c-next').addEventListener('click', () => go('pile'));
+$('#c-next').addEventListener('click', () => { go('pile'); Sound.buried(); });
 function play(route) {
   const item = state.current; const good = GOOD_ROUTE.has(item.id);
   pending = { item, route, good }; steps = buildSteps(item, route, good); si = 0;
@@ -210,7 +212,7 @@ function tick() {
     ? `${intact} intact · ${frag} broken into fragments (still there) · ${gone} actually gone` + (y >= 60 ? ' · you: gone' : '')
     : '';
 }
-slider.addEventListener('input', tick);
+slider.addEventListener('input', () => { const y = Number(slider.value); if (lastYear < 60 && y >= 60) Sound.gone(); lastYear = y; tick(); });
 $('#reset').addEventListener('click', () => { state.buried = []; state.saved = []; slider.value = 0; refresh(); go('scan'); });
 
 /* ---------- methodology ---------- */
@@ -240,14 +242,22 @@ $('#go-sim').addEventListener('click', () => { try {
   const place = PLACES.find((p) => p.name === sel.value); const tPerDay = size.pop * place.kg * place.dump / 1000;
   go('sim'); $('#sim-end').hidden = true; $('#sim-place').textContent = `${place.name} · ${size.label.toLowerCase()}`;
   $('#sim-rate').textContent = `${fmtT(tPerDay)} a day goes into the ground`;
-  sim = sim || new Sim($('#simcv'));
+  sim = sim || new Sim($('#simcv')); sim.onTip = Sound.tip; Sound.scene('sim');
   sim.run({ tPerDay, skyN: size.skyN, skyH: size.skyH }, (day, t) => { $('#sim-day').textContent = `Day ${Math.floor(day)}`; $('#sim-t').textContent = `${fmtT(t)} in the landfill`; }, () => {
     const yr = tPerDay * 365, m3 = yr / 0.75, bins = Math.round(m3 / 0.24), pools = m3 / 2500;
     $('#end-year').textContent = fmtT(yr);
     $('#end-eq').textContent = pools >= 0.05 ? `Roughly ${pools < 1 ? pools.toFixed(1) : Math.round(pools).toLocaleString()} Olympic swimming pools of rubbish.` : `Roughly ${Math.max(bins, 1).toLocaleString()} wheelie bins of rubbish.`;
     $('#end-ten').textContent = fmtT(yr * 10);
     $('#end-note').textContent = `${place.name}: ${place.kg} kg of waste per person per day (${place.yr}), and ${Math.round(place.dump * 100)}% of it is landfilled, dumped or never collected. ${SOURCE} Volumes are rough estimates; the pile is drawn on a log scale.`;
-    $('#sim-end').hidden = false;
+    $('#sim-end').hidden = false; Sound.stop(); Sound.bell();
   });
 } catch (err) { console.error(err); go('where'); alert('Sorry, the simulation failed to start: ' + err.message); }
 });
+
+/* ---------- sound: unlock on first tap, tick on buttons, mute toggle ---------- */
+const mute = $('#mute');
+const paintMute = () => { mute.textContent = Sound.isOn() ? 'Sound on' : 'Sound off'; mute.setAttribute('aria-pressed', String(Sound.isOn())); };
+paintMute();
+addEventListener('pointerdown', () => Sound.init(), { capture: true });
+mute.addEventListener('click', () => { Sound.init(); Sound.setOn(!Sound.isOn()); paintMute(); if (Sound.isOn()) Sound.ui(); });
+document.addEventListener('click', (e) => { if (e.target.closest('button, summary, label.cta') && !e.target.closest('#mute')) Sound.ui(); });
