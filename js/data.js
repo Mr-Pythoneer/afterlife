@@ -478,7 +478,7 @@ export function labelIndex() {
 
 export function yearsText(y) {
   if (y === Infinity) return 'indefinitely';
-  if (y < 1) return `${Math.round(y * 12)} months`;
+  if (y < 1) { const m = Math.max(1, Math.round(y * 12)); return m === 1 ? '1 month' : `${m} months`; }
   if (y < 2) return `${y.toFixed(1)} years`;
   return `${Math.round(y).toLocaleString()} years`;
 }
