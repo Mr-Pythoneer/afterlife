@@ -233,7 +233,7 @@ $('#go-sim').addEventListener('click', () => {
     $('#end-year').textContent = fmtT(yr);
     $('#end-eq').textContent = pools >= 0.05 ? `Roughly ${pools < 1 ? pools.toFixed(1) : Math.round(pools).toLocaleString()} Olympic swimming pools of rubbish.` : `Roughly ${Math.max(bins, 1).toLocaleString()} wheelie bins of rubbish.`;
     $('#end-ten').textContent = fmtT(yr * 10);
-    $('#end-note').textContent = `${place.name}: ${place.kg} kg of waste per person per day (${place.yr}), and ${Math.round(place.dump * 100)}% of it is landfilled or dumped. ${SOURCE} Volumes are rough estimates; the pile is drawn on a log scale.`;
+    $('#end-note').textContent = `${place.name}: ${place.kg} kg of waste per person per day (${place.yr}), and ${Math.round(place.dump * 100)}% of it is landfilled, dumped or never collected. ${SOURCE} Volumes are rough estimates; the pile is drawn on a log scale.`;
     $('#sim-end').hidden = false;
   });
 });
