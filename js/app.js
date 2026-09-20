@@ -137,7 +137,7 @@ function status2(year) {
   }
   return { intact, frag, gone };
 }
-function outlast() { return state.buried.filter(({ item }) => (item.mode === MODES.BIODEGRADES ? item.persist.high : item.persist.low) > OUTLIVE_YEAR).length; }
+function outlast() { return state.buried.filter(({ item }) => item.mode !== MODES.BIODEGRADES || item.persist.high > OUTLIVE_YEAR).length; }
 function refresh() {
   scene.setItems(state.buried.map((b) => ({ item: b.item })));
   const n = state.buried.length, s = state.saved.length, o = outlast();
