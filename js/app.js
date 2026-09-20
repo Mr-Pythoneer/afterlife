@@ -8,23 +8,31 @@ const GOOD_ROUTE = new Set(['pet-bottle', 'aluminium-can', 'tin-can', 'glass-bot
 const OUTLIVE_YEAR = 80;
 
 const state = { buried: [], saved: [], current: null };
-const scene = new Scene($('#ground'));
+let scene;
 
-/* ---------- picker ---------- */
+/* ---------- screens ---------- */
+const SCREENS = ['scan', 'pick', 'id', 'journey', 'decide', 'out', 'pile'];
+function go(name) {
+  for (const n of SCREENS) $('#scr-' + n).hidden = n !== name;
+  window.scrollTo(0, 0);
+  if (name === 'pile') { if (!scene) scene = new Scene($('#ground')); else scene.resize(); refresh(); }
+}
+document.addEventListener('click', (e) => { const t = e.target.closest('[data-go]'); if (t) go(t.dataset.go); });
+
 const picker = $('#picker');
 for (const item of ITEMS.filter((i) => i.id !== 'unknown')) {
   const b = document.createElement('button');
   b.type = 'button'; b.textContent = item.name;
-  b.addEventListener('click', () => show(item, null));
+  b.addEventListener('click', () => { $('#thumb').replaceChildren(); show(item, false); });
   picker.append(b);
 }
-
-/* ---------- scanning ---------- */
-const status = $('#scan-status');
-const bar = $('#bar');
+$('#open-pick').addEventListener('click', () => go('pick'));
+$('#not-it').addEventListener('click', () => go('pick'));
 const key = () => { try { return sessionStorage.getItem('afterlife-key') || ''; } catch { return ''; } };
 $('#key').value = key();
 $('#key').addEventListener('change', (e) => { try { sessionStorage.setItem('afterlife-key', e.target.value.trim()); } catch {} });
+const status = $('#scan-status');
+const bar = $('#bar');
 
 function toCanvas(file) {
   return new Promise((resolve, reject) => {
@@ -45,86 +53,76 @@ async function scan(file) {
   if (!file) return;
   status.textContent = 'Reading the photo…'; bar.hidden = true;
   const canvas = await toCanvas(file);
-  $('#preview').replaceChildren(canvas); canvas.className = 'thumb';
+  canvas.className = 'thumb'; $('#thumb').replaceChildren(canvas);
   try {
     let ranked;
     if (key()) { status.textContent = 'Asking Claude…'; ranked = await classifyClaude(canvas, key()); }
     else {
-      status.textContent = 'Loading the on-device model (first time only, ~85 MB)…'; bar.hidden = false;
+      status.textContent = 'Loading scanner (first time only, ~85 MB)…'; bar.hidden = false;
       ranked = await classifyLocal(canvas, (p) => { bar.value = p; });
       bar.hidden = true;
     }
     const top = ranked[0];
     const item = top.score > 0.3 || top.score === 1 ? itemById(top.id) : itemById('unknown');
-    status.textContent = item.id === 'unknown' ? 'Not sure what that is — pick the closest match below.' : `Looks like: ${item.name}. Wrong? Pick the right one below.`;
-    show(item, ranked.slice(0, 3));
+    status.textContent = '';
+    show(item, true);
   } catch (err) {
     console.error(err); bar.hidden = true;
-    status.textContent = 'The scanner failed to run here. Pick the item manually below — everything else works.';
+    status.textContent = 'Scanner failed on this device. Pick from the list instead.';
   }
 }
 $('#file').addEventListener('change', (e) => scan(e.target.files[0]));
-const drop = $('#drop');
-['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
-['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
-drop.addEventListener('drop', (e) => scan(e.dataTransfer.files[0]));
 
-/* ---------- result ---------- */
-function show(item) {
+/* ---------- identified ---------- */
+function show(item, scanned) {
   state.current = item;
-  $('#result').hidden = false;
+  $('#id-label').textContent = scanned ? 'Looks like' : 'You picked';
   $('#r-name').textContent = item.name;
-  $('#r-material').textContent = item.material;
-  const mode = MODE_COPY[item.mode];
-  $('#r-mode').textContent = mode.label;
-  $('#r-mode').dataset.mode = item.mode;
-  $('#r-mode-blurb').textContent = mode.blurb;
   $('#r-range').textContent = rangeText(item);
-  $('#r-claimed').textContent = item.claimed ? `Posters say ${item.claimed === 1000000 ? '1,000,000' : item.claimed} years. Nobody measured that.` : '';
+  $('#r-claimed').textContent = item.claimed ? `Posters say ${item.claimed === 1000000 ? '1,000,000' : item.claimed}. Nobody measured that.` : '';
+  $('#r-mode').textContent = MODE_COPY[item.mode].label;
+  $('#r-mode').dataset.mode = item.mode;
+  $('#m-name').textContent = item.name;
+  for (const k of ['harm', 'recycle', 'better']) $('#r-' + k).textContent = item[k];
   $('#r-note').textContent = item.note || '';
-  $('#r-harm').textContent = item.harm;
-  $('#r-better').textContent = item.better;
-  $('#r-recycle').textContent = item.recycle;
   const src = $('#r-source');
   src.textContent = item.source?.name && item.source.name !== '—' ? `Source: ${item.source.name}` : '';
-  if (item.source?.url) { src.href = item.source.url; } else { src.removeAttribute('href'); }
-  const list = $('#journey'); list.replaceChildren();
-  getJourney(item).forEach((s, i) => {
-    const li = document.createElement('li');
-    if (s.branch) li.className = 'branch';
-    li.style.animationDelay = `${i * 90}ms`;
-    li.innerHTML = `<span class="t"></span><b></b><p></p>`;
-    li.querySelector('.t').textContent = s.t; li.querySelector('b').textContent = s.title; li.querySelector('p').textContent = s.text;
-    list.append(li);
-  });
-  $('#outcome').textContent = '';
-  $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (item.source?.url) src.href = item.source.url; else src.removeAttribute('href');
+  go('id');
 }
 
-/* ---------- disposal choices ---------- */
+/* ---------- journey: one beat per tap ---------- */
+let steps = [], si = 0;
+function beat() {
+  const s = steps[si];
+  $('#dots').innerHTML = steps.map((x, i) => `<i class="${i <= si ? 'on' : ''} ${x.branch ? 'branch' : ''}"></i>`).join('');
+  $('#j-t').textContent = s.t; $('#j-title').textContent = s.title;
+  $('#scr-journey').classList.toggle('branch', !!s.branch);
+}
+$('#go-journey').addEventListener('click', () => { steps = getJourney(state.current); si = 0; go('journey'); beat(); });
+$('#scr-journey').addEventListener('click', () => {
+  if (si < steps.length - 1) { si++; beat(); } else { $('#d-name').textContent = state.current.name; go('decide'); }
+});
+
+/* ---------- decide ---------- */
 function dispose(route) {
-  const item = state.current; if (!item) return;
+  const item = state.current;
   const out = $('#outcome');
   const good = GOOD_ROUTE.has(item.id);
-  if (route === 'better' && good) {
-    state.saved.push(item);
-    out.className = 'good';
-    out.textContent = `Diverted. ${item.name} stays out of the ground. ${item.better}`;
-  } else {
+  if (route === 'better' && good) { state.saved.push(item); out.className = 'huge good'; out.textContent = 'Diverted. It stays out of the ground.'; }
+  else {
     state.buried.push({ item });
-    out.className = 'bad';
-    out.textContent = route === 'better'
-      ? `There is no good route for this one, so it is buried anyway. The only fix is upstream: ${item.better}`
-      : route === 'litter'
-        ? `Dropped. Nobody collects it, so it moves with the wind and water. It is now part of your pile below.`
-        : `Bagged, binned, buried. ${item.recycle.startsWith('Yes') || item.recycle.startsWith('One of') ? 'It could have been recycled.' : ''} It is now part of your pile below.`;
+    out.className = 'huge bad';
+    out.textContent = route === 'better' ? 'No good route exists. Buried anyway.'
+      : route === 'litter' ? 'Dropped. It is travelling now.'
+      : good ? 'Buried. It could have been recycled.' : 'Buried.';
   }
-  refresh();
-  $('#legacy').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  go('out');
 }
 $('#d-bin').addEventListener('click', () => dispose('bin'));
 $('#d-litter').addEventListener('click', () => dispose('litter'));
 $('#d-better').addEventListener('click', () => dispose('better'));
+$('#see-pile').addEventListener('click', () => go('pile'));
 
 /* ---------- ground + stats ---------- */
 const slider = $('#year');
@@ -139,6 +137,7 @@ function status2(year) {
 }
 function outlast() { return state.buried.filter(({ item }) => item.mode !== MODES.BIODEGRADES || item.persist.high > OUTLIVE_YEAR).length; }
 function refresh() {
+  if (!scene) return;
   scene.setItems(state.buried.map((b) => ({ item: b.item })));
   const n = state.buried.length, s = state.saved.length, o = outlast();
   $('#stat-buried').textContent = n; $('#stat-saved').textContent = s; $('#stat-outlast').textContent = o;
@@ -152,21 +151,20 @@ function tick() {
   const y = Number(slider.value);
   scene.setYear(y);
   const { intact, frag, gone } = status2(y);
-  $('#year-label').textContent = y === 0 ? 'today' : `year +${y}`;
+  $('#year-label').textContent = y === 0 ? 'today' : `+${y}`;
   $('#year-detail').textContent = state.buried.length
     ? `${intact} intact · ${frag} broken into fragments (still there) · ${gone} actually gone` + (y >= 60 ? ' · you: gone' : '')
     : '';
 }
 slider.addEventListener('input', tick);
-$('#reset').addEventListener('click', () => { state.buried = []; state.saved = []; slider.value = 0; refresh(); });
+$('#reset').addEventListener('click', () => { state.buried = []; state.saved = []; slider.value = 0; refresh(); go('scan'); });
 
 /* ---------- methodology ---------- */
 $('#m-head').textContent = METHODOLOGY.headline;
-for (const t of METHODOLOGY.body) { const p = document.createElement('p'); p.textContent = t; $('#m-body').append(p); }
+for (const t of METHODOLOGY.body) { const p = document.createElement('p'); p.textContent = t; p.style.marginTop = '8px'; $('#m-body').append(p); }
 $('#m-cite').href = METHODOLOGY.cite.url; $('#m-cite').textContent = METHODOLOGY.cite.name;
 
-refresh();
-if (matchMedia('(prefers-reduced-data: no-preference)').matches && !navigator.connection?.saveData && !key()) {
-  /* warm the model in the background on fast-ish connections so the first scan feels instant */
-  const c = navigator.connection; if (!c || ['4g', undefined].includes(c.effectiveType)) setTimeout(() => loadClassifier().catch(() => {}), 2500);
+if (!navigator.connection?.saveData && !key()) {
+  const c = navigator.connection;
+  if (!c || c.effectiveType === '4g') setTimeout(() => loadClassifier().catch(() => {}), 2500);
 }
