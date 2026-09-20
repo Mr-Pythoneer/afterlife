@@ -495,3 +495,25 @@ export function rangeText(item) {
 export function changeYear(item) {
   return item.mode === MODES.BIODEGRADES ? item.persist.high : item.persist.low;
 }
+
+/* The consequence beat at the end of an item's journey. Every stat is from a named study or agency;
+ * the framing is "what items like this do", never "your item did this" — we can't know that. */
+export const COST = {
+  'plastic-bag': { pic: 'turtle', line: 'Bags like this kill turtles.', stat: 'A turtle that swallows a single piece of plastic has a 22% chance of dying. At 14 pieces it is 50%.', src: 'Wilcox et al. 2018, Scientific Reports (246 turtles)' },
+  'plastic-cutlery': { pic: 'turtle', line: 'This is what turtles and seabirds swallow most.', stat: 'Experts ranked plastic cutlery as the debris most likely to be eaten.', src: 'Wilcox et al. 2016, Marine Policy' },
+  'straw': { pic: 'turtle', line: 'Researchers pulled one of these out of a live turtle\'s nose.', stat: 'A 10 cm straw, from an olive ridley turtle in Costa Rica, 2015. A single observation, not a study.', src: 'Texas A&M / National Geographic' },
+  'balloon': { pic: 'bird', line: 'Balloons are the deadliest litter for seabirds.', stat: 'A bird that swallows one is 32 times more likely to die than one that swallows hard plastic.', src: 'Roman et al. 2019, Scientific Reports (1,733 seabirds)' },
+  'bottle-cap': { pic: 'bird', line: 'Plastic like this is what albatross chicks are fed.', stat: '97.6% of 251 chicks examined on Midway Atoll had plastic inside them.', src: 'Auman et al. 1997' },
+  'fishing-line': { pic: 'bird', line: 'Lost line keeps catching things with nobody there.', stat: '7% of 3,766 pelicans surveyed in Tampa Bay were tangled in fishing gear.', src: 'PLOS ONE 2025' },
+  'cigarette-butt': { pic: 'animal', line: 'One butt in a litre of water kills half the fish in it.', stat: 'LC50 of about 1 butt per litre for fathead minnow and topsmelt.', src: 'Slaughter et al. 2011, Tobacco Control' },
+  'battery': { pic: 'fire', line: 'Binned batteries start fires.', stat: 'Over 1,200 battery fires in UK waste sites and bin lorries in one year, up 71%.', src: 'Environmental Services Association 2023/24' },
+  'electronics': { pic: 'fire', line: 'Where e-waste is burned by hand, children carry the lead.', stat: 'Children in Guiyu, China: blood lead averaged 15.3 µg/dL, and 82% were above 10.', src: 'Huo et al. 2007, Environmental Health Perspectives' },
+  'face-mask': { pic: 'fragments', line: 'One mask sheds about 1,700 microplastic particles a day.', stat: 'Measured on disposable masks in use.', src: 'Hong et al. 2023, Science of the Total Environment' },
+  'clothing': { pic: 'river', line: 'One wash of synthetic clothes can shed half a million fibres.', stat: '496,030 fibres from a 6 kg polyester load, straight through treatment plants.', src: 'Napper & Thompson 2016, Marine Pollution Bulletin' },
+  'pet-bottle': { pic: 'fragments', line: 'It comes back to you.', stat: 'Bottled water was found to hold about 240,000 plastic particles per litre, mostly nanoplastics.', src: 'Qian et al. 2024, PNAS' },
+  'aluminium-can': { pic: 'furnace', line: 'Burying a can wastes 95% of the energy it took to make.', stat: 'Recycled aluminium needs 95% less energy than new metal from ore.', src: 'International Aluminium Institute' },
+  'coffee-cup': { pic: 'dump', line: 'Fewer than 1 in 400 of these are recycled.', stat: 'The UK throws away about 2.5 billion disposable cups a year.', src: 'UK Environmental Audit Committee 2018' },
+  'styrofoam': { pic: 'dump', line: 'Its building block is a probable carcinogen.', stat: 'Styrene is classed Group 2A, "probably carcinogenic to humans", and it migrates into food.', src: 'IARC Monograph 121, 2019' },
+  'banana-peel': { pic: 'dump', line: 'Sealed in landfill, it makes methane instead of soil.', stat: 'Landfills are the third-largest source of human methane emissions in the US, 14.4%.', src: 'US EPA' },
+  'apple-core': { pic: 'dump', line: 'Sealed in landfill, it makes methane instead of soil.', stat: 'Landfills are the third-largest source of human methane emissions in the US, 14.4%.', src: 'US EPA' },
+};

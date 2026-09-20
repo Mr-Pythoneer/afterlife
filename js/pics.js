@@ -130,6 +130,26 @@ const P = {
     const q = ease((t - 1.1) / 1); c.strokeStyle = '#7FB58C'; c.lineWidth = S * .6; c.beginPath(); c.moveTo(W / 2, gy); c.lineTo(W / 2, gy - q * S * 12); c.stroke();
     c.fillStyle = '#7FB58C'; c.beginPath(); c.ellipse(W / 2 - S * 2.5 * q, gy - q * S * 11, S * 2.6 * q, S * 1.2 * q, -.5, 0, 7); c.fill(); c.beginPath(); c.ellipse(W / 2 + S * 2.5 * q, gy - q * S * 11, S * 2.6 * q, S * 1.2 * q, .5, 0, 7); c.fill();
   },
+  turtle(c, W, H, t, it) {
+    sky(c, W, H, '#2f6f86', '#0b2233'); const S = Math.min(W, H) / 60; const x = W * .55 + Math.sin(t) * S, y = H * .45 + Math.sin(t * 1.6) * S;
+    c.fillStyle = '#5a6b3a'; c.beginPath(); c.ellipse(x, y, S * 9, S * 6, 0, 0, 7); c.fill(); c.fillStyle = '#48582e'; c.beginPath(); c.ellipse(x, y, S * 6, S * 3.8, 0, 0, 7); c.fill();
+    c.fillStyle = '#7a8a52'; c.beginPath(); c.ellipse(x - S * 10.5, y, S * 3, S * 2.2, 0, 0, 7); c.fill();
+    for (const k of [-1, 1]) { const f = Math.sin(t * 3) * .4; c.save(); c.translate(x - S * 3, y + k * S * 5); c.rotate(k * (.5 + f)); c.beginPath(); c.ellipse(0, k * S * 3, S * 1.6, S * 4.5, 0, 0, 7); c.fill(); c.restore(); }
+    const p = Math.min(t / 1.6, 1); if (p < 1) mine(c, it, W * .12 + p * (x - S * 12 - W * .12), y - S * 2 + Math.sin(t * 4) * 6, S * .6, t, 1); else mine(c, it, x - S * 7, y + S * .5, S * .28, 0, .9);
+  },
+  bird(c, W, H, t, it) {
+    sky(c, W, H, '#5a6a78', '#b8a98c'); const S = Math.min(W, H) / 60; const x = W / 2, y = H * .42 + Math.sin(t * 2) * S * 1.5, f = Math.sin(t * 6);
+    c.fillStyle = '#e9e6de'; c.beginPath(); c.ellipse(x, y, S * 9, S * 3.6, 0, 0, 7); c.fill();
+    c.beginPath(); c.arc(x + S * 9, y - S, S * 2.4, 0, 7); c.fill(); c.fillStyle = '#d6b23a'; c.beginPath(); c.moveTo(x + S * 11, y - S * 1.4); c.lineTo(x + S * 15, y - S * .6); c.lineTo(x + S * 11, y); c.fill();
+    c.fillStyle = '#c9c5ba'; for (const k of [-1, 1]) { c.beginPath(); c.moveTo(x - S * 2, y); c.lineTo(x + S * 3, y); c.lineTo(x - S * 8, y - S * 13 * f - S * 5 * (k > 0 ? 0 : 0)); c.fill(); }
+    if (t > .8) mine(c, it, x - S * 1, y + S * .2, S * .22, 0, Math.min((t - .8) * 2, 1));
+  },
+  fire(c, W, H, t, it) {
+    sky(c, W, H, '#150f0c', '#2a1a12'); const S = Math.min(W, H) / 60; box(c, '#1a1410', 0, H * .8, W, H * .2);
+    for (let i = 0; i < 22; i++) { const bx = W * (.3 + h(i) * .4), life = ((t * .9 + h(i + 5)) % 1), fy = H * .8 - life * H * .5 * (.5 + h(i + 2)); c.fillStyle = `rgba(255,${120 + h(i) * 100 | 0},30,${1 - life})`; c.beginPath(); c.ellipse(bx, fy, S * (2.5 - life * 1.8), S * (4 - life * 2), 0, 0, 7); c.fill(); }
+    mine(c, it, W / 2, H * .72, S * .8, Math.sin(t * 20) * .1);
+    for (let i = 0; i < 6; i++) { c.fillStyle = `rgba(90,90,90,${.35 - ((t + i * .3) % 1.5) * .2})`; c.beginPath(); c.arc(W * (.45 + h(i) * .1), H * .3 - ((t + i * .3) % 1.5) * S * 8, S * (3 + i), 0, 7); c.fill(); }
+  },
   generic(c, W, H, t, it) { sky(c, W, H, '#26241d', '#3a372c'); mine(c, it, W / 2, H / 2, Math.min(W, H) / 60 * 1.2, t * .6); },
 };
 

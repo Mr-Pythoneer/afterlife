@@ -1,6 +1,8 @@
-import { ITEMS, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js';
+import { ITEMS, COST, MODES, FATES, MODE_COPY, METHODOLOGY, itemById, getJourney, rangeText } from './data.js';
 import { Scene } from './scene.js';
 import { drawPic } from './pics.js';
+import { Sim } from './sim.js';
+import { PLACES, SOURCE } from './places.js';
 import { classifyLocal, classifyClaude, loadClassifier } from './ai.js';
 
 const $ = (s) => document.querySelector(s);
@@ -12,10 +14,11 @@ const state = { buried: [], saved: [], current: null };
 let scene;
 
 /* ---------- screens ---------- */
-const SCREENS = ['scan', 'pick', 'id', 'journey', 'decide', 'out', 'pile'];
+const SCREENS = ['scan', 'pick', 'id', 'journey', 'decide', 'out', 'pile', 'where', 'sim'];
 function go(name) {
   for (const n of SCREENS) $('#scr-' + n).hidden = n !== name;
   window.scrollTo(0, 0);
+  if (name !== 'sim') sim?.stop();
   if (name === 'pile') { if (!scene) scene = new Scene($('#ground')); else scene.resize(); refresh(); }
 }
 document.addEventListener('click', (e) => { const t = e.target.closest('[data-go]'); if (t) go(t.dataset.go); });
@@ -107,9 +110,9 @@ function buildSteps(item, route, good) {
     const s = [{ t: 'right now', title: 'You drop it', pic: 'hand' }, { t: 'day 1', title: 'Nobody collects it', pic: 'dump' }];
     if (item.mode === MODES.BIODEGRADES) return [...s, { t: 'weeks', title: 'It rots', pic: 'soil' }];
     s.push({ t: 'first rain', title: 'The drain', pic: 'drain' }, { t: 'day 9', title: 'The river', pic: 'river' }, { t: 'year 1', title: 'The sea', pic: 'sea' });
-    return item.mode === MODES.FRAGMENTS
+    return withCost(item, item.mode === MODES.FRAGMENTS
       ? [...s, { t: 'the half-life', title: 'It breaks up, not down', pic: 'fragments' }, { t: 'after that', title: 'Small enough to eat', pic: 'animal' }]
-      : [...s, { t: 'the far end', title: 'Still here', pic: 'clock' }];
+      : [...s, { t: 'the far end', title: 'Still here', pic: 'clock' }]);
   }
   if (route === 'better' && good) {
     if (item.fate === FATES.ORGANIC) return [{ t: 'right now', title: 'You let go', pic: 'hand' }, { t: 'week 2', title: 'Compost', pic: 'soil' }];
@@ -117,7 +120,10 @@ function buildSteps(item, route, good) {
       { t: 'day 6', title: 'The sorting line', pic: 'sorting', branch: true }, { t: 'month 1', title: 'Melted or pulped', pic: 'furnace' },
       { t: 'month 3', title: 'Something new', pic: 'shelf' }];
   }
-  return getJourney(item).map((x) => ({ ...x, pic: PIC[x.title] || 'generic' }));
+  return withCost(item, getJourney(item).map((x) => ({ ...x, pic: PIC[x.title] || 'generic' })));
+}
+function withCost(item, list) {
+  const k = COST[item.id]; return k ? [...list, { t: 'the consequence', title: k.line, sub: `${k.stat} (${k.src})`, pic: k.pic, branch: true, ms: 6500 }] : list;
 }
 
 let steps = [], si = 0, t0 = 0, raf = 0, pending = null;
@@ -127,13 +133,13 @@ function sizePic() { const d = Math.min(devicePixelRatio || 1, 2); pic.width = i
 function beat() {
   const s = steps[si]; t0 = performance.now();
   $('#dots').innerHTML = steps.map((x, i) => `<i class="${i <= si ? 'on' : ''} ${x.branch ? 'branch' : ''}"></i>`).join('');
-  $('#j-t').textContent = s.t; const ti = $('#j-title'); ti.textContent = s.title; ti.style.animation = 'none'; void ti.offsetWidth; ti.style.animation = '';
+  $('#j-sub').textContent = s.sub || ''; $('#j-t').textContent = s.t; const ti = $('#j-title'); ti.textContent = s.title; ti.style.animation = 'none'; void ti.offsetWidth; ti.style.animation = '';
   $('#scr-journey').classList.toggle('branch', !!s.branch);
 }
 function frame(now) {
   const t = (now - t0) / 1000;
   drawPic(pctx, steps[si].pic, innerWidth, innerHeight, t, state.current);
-  if (now - t0 >= STAGE_MS) return next();
+  if (now - t0 >= (steps[si].ms || STAGE_MS)) return next();
   raf = requestAnimationFrame(frame);
 }
 function next() {
@@ -201,3 +207,33 @@ if (!navigator.connection?.saveData && !key()) {
   const c = navigator.connection;
   if (!c || c.effectiveType === '4g') setTimeout(() => loadClassifier().catch(() => {}), 2500);
 }
+
+/* ---------- where do you live -> landfill time-lapse ---------- */
+const SIZES = [
+  { label: 'Just me', pop: 1, skyN: 1, skyH: .5 }, { label: 'My school', sub: '1,000 people', pop: 1000, skyN: 4, skyH: .7 },
+  { label: 'My town', sub: '50,000 people', pop: 50000, skyN: 9, skyH: 1 }, { label: 'My city', sub: '1 million people', pop: 1e6, skyN: 16, skyH: 1.5 },
+];
+let size = SIZES[2], sim;
+const sel = $('#place');
+for (const p of [...PLACES].sort((a, b) => a.name.localeCompare(b.name))) { const o = document.createElement('option'); o.value = p.name; o.textContent = p.name; sel.append(o); }
+sel.value = 'United States';
+const sizes = $('#sizes');
+SIZES.forEach((z) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = `${z.label}${z.sub ? `<small>${z.sub}</small>` : ''}`; b.onclick = () => { size = z; [...sizes.children].forEach((x) => x.classList.toggle('on', x === b)); }; if (z === size) b.classList.add('on'); sizes.append(b); });
+const fmtT = (t) => (t < 1 ? `${Math.round(t * 1000)} kg` : t < 10 ? `${t.toFixed(1)} tonnes` : `${Math.round(t).toLocaleString()} tonnes`);
+if (!PLACES.length) $('#open-where').hidden = true;
+$('#open-where').addEventListener('click', () => go('where'));
+$('#again').addEventListener('click', () => go('where'));
+$('#go-sim').addEventListener('click', () => {
+  const place = PLACES.find((p) => p.name === sel.value); const tPerDay = size.pop * place.kg * place.dump / 1000;
+  go('sim'); $('#sim-end').hidden = true; $('#sim-place').textContent = `${place.name} · ${size.label.toLowerCase()}`;
+  $('#sim-rate').textContent = `${fmtT(tPerDay)} a day goes into the ground`;
+  sim = sim || new Sim($('#simcv'));
+  sim.run({ tPerDay, skyN: size.skyN, skyH: size.skyH }, (day, t) => { $('#sim-day').textContent = `Day ${Math.floor(day)}`; $('#sim-t').textContent = `${fmtT(t)} in the landfill`; }, () => {
+    const yr = tPerDay * 365, m3 = yr / 0.75, bins = Math.round(m3 / 0.24), pools = m3 / 2500;
+    $('#end-year').textContent = fmtT(yr);
+    $('#end-eq').textContent = pools >= 0.05 ? `Roughly ${pools < 1 ? pools.toFixed(1) : Math.round(pools).toLocaleString()} Olympic swimming pools of rubbish.` : `Roughly ${Math.max(bins, 1).toLocaleString()} wheelie bins of rubbish.`;
+    $('#end-ten').textContent = fmtT(yr * 10);
+    $('#end-note').textContent = `${place.name}: ${place.kg} kg of waste per person per day (${place.yr}), and ${Math.round(place.dump * 100)}% of it is landfilled or dumped. ${SOURCE} Volumes are rough estimates; the pile is drawn on a log scale.`;
+    $('#sim-end').hidden = false;
+  });
+});
